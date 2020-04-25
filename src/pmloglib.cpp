@@ -84,10 +84,10 @@ static void LogWrapper(const v8::FunctionCallbackInfo<v8::Value>& args)
         return;
     }
     
-    String::Utf8Value label(args[0]);
-    int logLevel = args[1]->IntegerValue();
-    String::Utf8Value msgId(args[2]);
-    String::Utf8Value stringToLog(args[3]);
+    String::Utf8Value label(isolate, args[0]);
+    int logLevel = args[1]->IntegerValue(isolate->GetCurrentContext()).FromMaybe(0);
+    String::Utf8Value msgId(isolate, args[2]);
+    String::Utf8Value stringToLog(isolate, args[3]);
     LogString(logLevel, *label, *msgId, *stringToLog);
     args.GetReturnValue().Set(args[2]);
 }
@@ -107,8 +107,8 @@ static void LogKeyValueWrapper(const v8::FunctionCallbackInfo<v8::Value>& args)
         return;
     }
     
-    String::Utf8Value label(args[0]);
-    int logLevel = args[1]->IntegerValue();
+    String::Utf8Value label(isolate, args[0]);
+    int logLevel = args[1]->IntegerValue(isolate->GetCurrentContext()).FromMaybe(0);
     const char *mid = NULL;
     const char *kv = NULL;
     const char *ft = NULL;
@@ -121,9 +121,9 @@ static void LogKeyValueWrapper(const v8::FunctionCallbackInfo<v8::Value>& args)
 
     if(logLevel != kPmLogLevel_Debug) {
 
-	String::Utf8Value msgId(args[2]);
-	String::Utf8Value keyValues(args[3]);
-	String::Utf8Value freeText(args[4]);
+	String::Utf8Value msgId(isolate, args[2]);
+	String::Utf8Value keyValues(isolate, args[3]);
+	String::Utf8Value freeText(isolate, args[4]);
 
         if (!args[2]->IsNull() && !args[2]->IsUndefined()) {
             mid = *msgId;
@@ -144,7 +144,7 @@ static void LogKeyValueWrapper(const v8::FunctionCallbackInfo<v8::Value>& args)
     }
     else {
 
-	String::Utf8Value freeText(args[2]);
+	String::Utf8Value freeText(isolate, args[2]);
         if (!args[2]->IsNull() && !args[2]->IsUndefined()) {
 	    ft = *freeText;
 	}
@@ -155,17 +155,17 @@ static void LogKeyValueWrapper(const v8::FunctionCallbackInfo<v8::Value>& args)
 }
 
 extern "C" void
-init(Handle<Object> target)
+init(Local<Object> target)
 {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
     HandleScope scope(isolate);
     Local<FunctionTemplate> logFunction = FunctionTemplate::New(isolate, LogWrapper);
     target->Set(v8::String::NewFromUtf8(isolate, "_logString", v8::String::kInternalizedString),
-                logFunction->GetFunction());
+                logFunction->GetFunction(isolate->GetCurrentContext()).ToLocalChecked());
     Local<FunctionTemplate> logKeyValueFunction = FunctionTemplate::New(isolate, LogKeyValueWrapper);
     target->Set(
         v8::String::NewFromUtf8(isolate, "_logKeyValueString", v8::String::kInternalizedString),
-        logKeyValueFunction->GetFunction());
+        logKeyValueFunction->GetFunction(isolate->GetCurrentContext()).ToLocalChecked());
     target->Set(
         v8::String::NewFromUtf8(isolate, "LOG_CRITICAL", v8::String::kInternalizedString),
         Integer::New(isolate, kPmLogLevel_Critical));
@@ -185,14 +185,15 @@ init(Handle<Object> target)
                                                        (const char*)pmloglib_js,
                                                        String::kNormalString,
                                                        pmloglib_js_len);
-    Local<Script> script = Script::Compile(
-        scriptText, v8::String::NewFromUtf8(isolate, "pmloglib.js"));
+	ScriptOrigin *scriptOrigin = new ScriptOrigin(String::NewFromUtf8(isolate, "pmloglib.js"));
+    Local<Script> script = Script::Compile(isolate->GetCurrentContext(),
+        scriptText, scriptOrigin).ToLocalChecked();
     if (!script.IsEmpty()) {
-        Local<Value> v = script->Run();
+        Local<Value> v = script->Run(isolate->GetCurrentContext()).ToLocalChecked();
         Local<Function> f = Local<Function>::Cast(v);
-        Handle<Value> argv[1];
+        Local<Value> argv[1];
         argv[0] = target;
-        f->Call(isolate->GetCurrentContext()->Global(), 1, &argv[0]);
+        f->Call(isolate->GetCurrentContext(), Null(isolate), 1, &argv[0]);
     } else {
         cerr << "Script was empty." << endl;
     }
