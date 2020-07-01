@@ -1,0 +1,4 @@
+Open Source Software Package:
+- name: webosOSE-nodejs-module-webos-pmlog
+  source: git://github.com/webosose/nodejs-module-webos-pmlog
+  license: Apache-2.0
