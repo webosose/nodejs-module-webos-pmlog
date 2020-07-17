@@ -1,4 +1,4 @@
-// Copyright (c) 2010-2018 LG Electronics, Inc.
+// Copyright (c) 2010-2020 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -78,16 +78,17 @@ static void LogKeyValueString(int level, const char *label, const char *msgId, c
 static void LogWrapper(const v8::FunctionCallbackInfo<v8::Value>& args)
 {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
+	Local<Context> context = isolate->GetCurrentContext();
     if (args.Length() != 4) {
         args.GetReturnValue().Set(isolate->ThrowException(v8::Exception::Error(
             v8::String::NewFromUtf8(isolate, "Invalid number of parameters, 3 expected."))));
         return;
     }
     
-    String::Utf8Value label(args[0]);
-    int logLevel = args[1]->IntegerValue();
-    String::Utf8Value msgId(args[2]);
-    String::Utf8Value stringToLog(args[3]);
+    String::Utf8Value label(args.GetIsolate(), args[0]);
+    int logLevel = args[1]->IntegerValue(context).FromJust();
+    String::Utf8Value msgId(args.GetIsolate(), args[2]);
+    String::Utf8Value stringToLog(args.GetIsolate(), args[3]);
     LogString(logLevel, *label, *msgId, *stringToLog);
     args.GetReturnValue().Set(args[2]);
 }
@@ -95,6 +96,7 @@ static void LogWrapper(const v8::FunctionCallbackInfo<v8::Value>& args)
 static void LogKeyValueWrapper(const v8::FunctionCallbackInfo<v8::Value>& args)
 {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    Local<Context> context = isolate->GetCurrentContext();
     if (args.Length() < 2) {
         args.GetReturnValue().Set(isolate->ThrowException(v8::Exception::Error(
             v8::String::NewFromUtf8(isolate, "Minimum 2 parameters expected"))));
@@ -107,8 +109,8 @@ static void LogKeyValueWrapper(const v8::FunctionCallbackInfo<v8::Value>& args)
         return;
     }
     
-    String::Utf8Value label(args[0]);
-    int logLevel = args[1]->IntegerValue();
+    String::Utf8Value label(args.GetIsolate(), args[0]);
+    int logLevel = args[1]->IntegerValue(context).FromJust();
     const char *mid = NULL;
     const char *kv = NULL;
     const char *ft = NULL;
@@ -121,9 +123,9 @@ static void LogKeyValueWrapper(const v8::FunctionCallbackInfo<v8::Value>& args)
 
     if(logLevel != kPmLogLevel_Debug) {
 
-	String::Utf8Value msgId(args[2]);
-	String::Utf8Value keyValues(args[3]);
-	String::Utf8Value freeText(args[4]);
+	String::Utf8Value msgId(args.GetIsolate(), args[2]);
+	String::Utf8Value keyValues(args.GetIsolate(), args[3]);
+	String::Utf8Value freeText(args.GetIsolate(), args[4]);
 
         if (!args[2]->IsNull() && !args[2]->IsUndefined()) {
             mid = *msgId;
@@ -144,7 +146,7 @@ static void LogKeyValueWrapper(const v8::FunctionCallbackInfo<v8::Value>& args)
     }
     else {
 
-	String::Utf8Value freeText(args[2]);
+	String::Utf8Value freeText(args.GetIsolate(), args[2]);
         if (!args[2]->IsNull() && !args[2]->IsUndefined()) {
 	    ft = *freeText;
 	}
@@ -155,17 +157,18 @@ static void LogKeyValueWrapper(const v8::FunctionCallbackInfo<v8::Value>& args)
 }
 
 extern "C" void
-init(Handle<Object> target)
+init(Local<Object> target)
 {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    Local<Context> currentContext = isolate->GetCurrentContext();
     HandleScope scope(isolate);
     Local<FunctionTemplate> logFunction = FunctionTemplate::New(isolate, LogWrapper);
     target->Set(v8::String::NewFromUtf8(isolate, "_logString", v8::String::kInternalizedString),
-                logFunction->GetFunction());
+                logFunction->GetFunction(currentContext).ToLocalChecked());
     Local<FunctionTemplate> logKeyValueFunction = FunctionTemplate::New(isolate, LogKeyValueWrapper);
     target->Set(
         v8::String::NewFromUtf8(isolate, "_logKeyValueString", v8::String::kInternalizedString),
-        logKeyValueFunction->GetFunction());
+        logKeyValueFunction->GetFunction(currentContext).ToLocalChecked());
     target->Set(
         v8::String::NewFromUtf8(isolate, "LOG_CRITICAL", v8::String::kInternalizedString),
         Integer::New(isolate, kPmLogLevel_Critical));
@@ -185,14 +188,14 @@ init(Handle<Object> target)
                                                        (const char*)pmloglib_js,
                                                        String::kNormalString,
                                                        pmloglib_js_len);
-    Local<Script> script = Script::Compile(
-        scriptText, v8::String::NewFromUtf8(isolate, "pmloglib.js"));
+    Local<Script> script = Script::Compile(currentContext,
+        v8::String::NewFromUtf8(isolate, "pmloglib.js")).ToLocalChecked();
     if (!script.IsEmpty()) {
-        Local<Value> v = script->Run();
+        Local<Value> v = script->Run(currentContext).ToLocalChecked();
         Local<Function> f = Local<Function>::Cast(v);
-        Handle<Value> argv[1];
+        Local<Value> argv[1];
         argv[0] = target;
-        f->Call(isolate->GetCurrentContext()->Global(), 1, &argv[0]);
+        f->Call(currentContext, isolate->GetCurrentContext()->Global(), 1, &argv[0]);
     } else {
         cerr << "Script was empty." << endl;
     }
