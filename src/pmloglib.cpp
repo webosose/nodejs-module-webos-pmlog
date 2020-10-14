@@ -188,8 +188,7 @@ init(Local<Object> target)
                                                        (const char*)pmloglib_js,
                                                        String::kNormalString,
                                                        pmloglib_js_len);
-    Local<Script> script = Script::Compile(currentContext,
-        v8::String::NewFromUtf8(isolate, "pmloglib.js")).ToLocalChecked();
+    Local<Script> script = Script::Compile(currentContext, scriptText).ToLocalChecked();
     if (!script.IsEmpty()) {
         Local<Value> v = script->Run(currentContext).ToLocalChecked();
         Local<Function> f = Local<Function>::Cast(v);
