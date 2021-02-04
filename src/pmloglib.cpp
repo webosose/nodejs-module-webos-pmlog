@@ -156,12 +156,14 @@ static void LogKeyValueWrapper(const v8::FunctionCallbackInfo<v8::Value>& args)
     }
 }
 
-extern "C" void
-init(Local<Object> target)
-{
-    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+extern "C" NODE_MODULE_EXPORT void
+NODE_MODULE_INITIALIZER(v8::Local<v8::Object> exports,
+                        v8::Local<v8::Value> module,
+                        v8::Local<v8::Context> context) {
+    v8::Isolate* isolate = context->GetIsolate();
     Local<Context> currentContext = isolate->GetCurrentContext();
     HandleScope scope(isolate);
+    v8::Local<v8::Object> target = exports;
     Local<FunctionTemplate> logFunction = FunctionTemplate::New(isolate, LogWrapper);
     target->Set(v8::String::NewFromUtf8(isolate, "_logString", v8::String::kInternalizedString),
                 logFunction->GetFunction(currentContext).ToLocalChecked());
@@ -199,6 +201,3 @@ init(Local<Object> target)
         cerr << "Script was empty." << endl;
     }
 }
-
-NODE_MODULE(pmloglib, init)
-
