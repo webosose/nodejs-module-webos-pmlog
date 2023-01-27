@@ -191,7 +191,7 @@ NODE_MODULE_INITIALIZER(v8::Local<v8::Object> exports,
                                                        (const char*)pmloglib_js,
                                                        v8::NewStringType::kNormal,
                                                        pmloglib_js_len).ToLocalChecked();
-    ScriptOrigin *scriptOrigin = new ScriptOrigin(String::NewFromUtf8(isolate, "pmloglib.js").ToLocalChecked());
+    ScriptOrigin *scriptOrigin = new ScriptOrigin(isolate, String::NewFromUtf8(isolate, "pmloglib.js").ToLocalChecked());
     Local<Script> script = Script::Compile(isolate->GetCurrentContext(),
         scriptText, scriptOrigin).ToLocalChecked();
     if (!script.IsEmpty()) {
