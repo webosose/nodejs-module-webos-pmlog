@@ -81,7 +81,7 @@ static void LogWrapper(const v8::FunctionCallbackInfo<v8::Value>& args)
 	Local<Context> context = isolate->GetCurrentContext();
     if (args.Length() != 4) {
         args.GetReturnValue().Set(isolate->ThrowException(v8::Exception::Error(
-            v8::String::NewFromUtf8(isolate, "Invalid number of parameters, 3 expected."))));
+            v8::String::NewFromUtf8(isolate, "Invalid number of parameters, 3 expected.").ToLocalChecked())));
         return;
     }
     
@@ -99,13 +99,13 @@ static void LogKeyValueWrapper(const v8::FunctionCallbackInfo<v8::Value>& args)
     Local<Context> context = isolate->GetCurrentContext();
     if (args.Length() < 2) {
         args.GetReturnValue().Set(isolate->ThrowException(v8::Exception::Error(
-            v8::String::NewFromUtf8(isolate, "Minimum 2 parameters expected"))));
+            v8::String::NewFromUtf8(isolate, "Minimum 2 parameters expected").ToLocalChecked())));
         return;
     }
 
     if (args.Length() > 5) {
         args.GetReturnValue().Set(isolate->ThrowException(v8::Exception::Error(
-            v8::String::NewFromUtf8(isolate, "Not more than 5 parameters expected"))));
+            v8::String::NewFromUtf8(isolate, "Not more than 5 parameters expected").ToLocalChecked())));
         return;
     }
     
@@ -117,7 +117,7 @@ static void LogKeyValueWrapper(const v8::FunctionCallbackInfo<v8::Value>& args)
 
     if (!args[1]->IsNumber()) {
         args.GetReturnValue().Set(isolate->ThrowException(v8::Exception::Error(
-            v8::String::NewFromUtf8(isolate, "Logging level must be an integer"))));
+            v8::String::NewFromUtf8(isolate, "Logging level must be an integer").ToLocalChecked())));
         return;
     }
 
@@ -131,7 +131,7 @@ static void LogKeyValueWrapper(const v8::FunctionCallbackInfo<v8::Value>& args)
             mid = *msgId;
         } else {
             args.GetReturnValue().Set(isolate->ThrowException(v8::Exception::Error(
-                v8::String::NewFromUtf8(isolate, "msgId is required for info and higher log levels"))));
+                v8::String::NewFromUtf8(isolate, "msgId is required for info and higher log levels").ToLocalChecked())));
             return;
         }
         if (!args[3]->IsNull() && !args[3]->IsUndefined()) {
@@ -165,32 +165,35 @@ NODE_MODULE_INITIALIZER(v8::Local<v8::Object> exports,
     HandleScope scope(isolate);
     v8::Local<v8::Object> target = exports;
     Local<FunctionTemplate> logFunction = FunctionTemplate::New(isolate, LogWrapper);
-    target->Set(v8::String::NewFromUtf8(isolate, "_logString", v8::String::kInternalizedString),
-                logFunction->GetFunction(currentContext).ToLocalChecked());
+    target->Set(isolate->GetCurrentContext(),
+        v8::String::NewFromUtf8(isolate, "_logString", v8::NewStringType::kInternalized).ToLocalChecked(),
+        logFunction->GetFunction(currentContext).ToLocalChecked());
     Local<FunctionTemplate> logKeyValueFunction = FunctionTemplate::New(isolate, LogKeyValueWrapper);
-    target->Set(
-        v8::String::NewFromUtf8(isolate, "_logKeyValueString", v8::String::kInternalizedString),
+    target->Set(isolate->GetCurrentContext(),
+        v8::String::NewFromUtf8(isolate, "_logKeyValueString", v8::NewStringType::kInternalized).ToLocalChecked(),
         logKeyValueFunction->GetFunction(currentContext).ToLocalChecked());
-    target->Set(
-        v8::String::NewFromUtf8(isolate, "LOG_CRITICAL", v8::String::kInternalizedString),
+    target->Set(isolate->GetCurrentContext(),
+        v8::String::NewFromUtf8(isolate, "LOG_CRITICAL", v8::NewStringType::kInternalized).ToLocalChecked(),
         Integer::New(isolate, kPmLogLevel_Critical));
-    target->Set(
-        v8::String::NewFromUtf8(isolate, "LOG_ERR",      v8::String::kInternalizedString),
+    target->Set(isolate->GetCurrentContext(),
+        v8::String::NewFromUtf8(isolate, "LOG_ERR",      v8::NewStringType::kInternalized).ToLocalChecked(),
         Integer::New(isolate, kPmLogLevel_Error));
-    target->Set(
-        v8::String::NewFromUtf8(isolate, "LOG_WARNING",  v8::String::kInternalizedString),
+    target->Set(isolate->GetCurrentContext(),
+        v8::String::NewFromUtf8(isolate, "LOG_WARNING",  v8::NewStringType::kInternalized).ToLocalChecked(),
         Integer::New(isolate, kPmLogLevel_Warning));
-    target->Set(
-        v8::String::NewFromUtf8(isolate, "LOG_INFO",     v8::String::kInternalizedString),
+    target->Set(isolate->GetCurrentContext(),
+        v8::String::NewFromUtf8(isolate, "LOG_INFO",     v8::NewStringType::kInternalized).ToLocalChecked(),
         Integer::New(isolate, kPmLogLevel_Info));
-    target->Set(
-        v8::String::NewFromUtf8(isolate, "LOG_DEBUG",    v8::String::kInternalizedString),
+    target->Set(isolate->GetCurrentContext(),
+        v8::String::NewFromUtf8(isolate, "LOG_DEBUG",    v8::NewStringType::kInternalized).ToLocalChecked(),
         Integer::New(isolate, kPmLogLevel_Debug));
     Local<String> scriptText = v8::String::NewFromUtf8(isolate,
                                                        (const char*)pmloglib_js,
-                                                       String::kNormalString,
-                                                       pmloglib_js_len);
-    Local<Script> script = Script::Compile(currentContext, scriptText).ToLocalChecked();
+                                                       v8::NewStringType::kNormal,
+                                                       pmloglib_js_len).ToLocalChecked();
+    ScriptOrigin *scriptOrigin = new ScriptOrigin(isolate, String::NewFromUtf8(isolate, "pmloglib.js").ToLocalChecked());
+    Local<Script> script = Script::Compile(isolate->GetCurrentContext(),
+        scriptText, scriptOrigin).ToLocalChecked();
     if (!script.IsEmpty()) {
         Local<Value> v = script->Run(currentContext).ToLocalChecked();
         Local<Function> f = Local<Function>::Cast(v);
